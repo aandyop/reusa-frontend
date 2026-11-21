@@ -1,35 +1,38 @@
 import { apiRequest } from "./apiClient";
 
-export const centersService = {
+export const donationCentersService = {
   getAll(token = null) {
-    return apiRequest("/donation-centers", { token });
+    return apiRequest("/centers", { token });
+  },
+
+  create(payload, token = null) {
+    return apiRequest("/centers", {
+      method: "POST",
+      body: payload,
+      token,
+    });
   },
 };
+
+export const centersService = donationCentersService;
 
 export const eventsService = {
   getAll(token = null) {
     return apiRequest("/events", { token });
   },
 
-  getById(id, token = null) {
-    return apiRequest(`/events/${id}`, { token });
-  },
-
-  // Solo ReLeader
-  create(payload, token) {
-    return apiRequest("/events", { method: "POST", body: payload, token });
-  },
-
-  // Solo ReLeader
-  update(id, payload, token) {
-    return apiRequest(`/events/${id}`, { method: "PUT", body: payload, token });
-  },
-
-  // roleInEvent: "assistant" | "donor"
-  join(id, roleInEvent, token) {
-    return apiRequest(`/events/${id}/join`, {
+  create(payload, token = null) {
+    return apiRequest("/events", {
       method: "POST",
-      body: { roleInEvent },
+      body: payload,
+      token,
+    });
+  },
+
+  join(eventId, participationRole, token = null) {
+    return apiRequest(`/events/${eventId}/join`, {
+      method: "POST",
+      body: { participation_role: participationRole },
       token,
     });
   },
@@ -40,17 +43,19 @@ export const blogService = {
     return apiRequest("/blog", { token });
   },
 
-  getById(id, token = null) {
-    return apiRequest(`/blog/${id}`, { token });
+  create(payload, token = null) {
+    return apiRequest("/blog", {
+      method: "POST",
+      body: payload,
+      token,
+    });
   },
 
-  // Solo ReLeader
-  create(payload, token) {
-    return apiRequest("/blog", { method: "POST", body: payload, token });
-  },
-
-  // Solo ReLeader
-  update(id, payload, token) {
-    return apiRequest(`/blog/${id}`, { method: "PUT", body: payload, token });
+  addComment(postId, content, token = null) {
+    return apiRequest(`/blog/${postId}/comments`, {
+      method: "POST",
+      body: { content },
+      token,
+    });
   },
 };

@@ -18,12 +18,14 @@ const FALLBACK_EVENTS = [
     id: "evt-01",
     organizer_id: "usr-002",
     organizer_nickname: "LiderSostenible",
-    title: "Jornada de Recolección de Mobiliario y Escolar",
+    title: "Jornada de Recolección de Mobiliario y Escolar · Valera",
     description:
-      "Punto de encuentro vecinal para recibir escritorios, sillas, lámparas y material en buen estado para familias y estudiantes de la zona.",
+      "Punto de encuentro vecinal en Valera para recibir escritorios, sillas, lámparas y material en buen estado para familias y estudiantes de la zona.",
     event_datetime: "2026-11-28T09:00:00",
-    place_name: "Plaza Bolívar - Zona Techada",
-    zone_name: "Centro Histórico",
+    place_name: "Plaza Bolívar de Valera - Zona Techada",
+    zone_name: "Centro de Valera",
+    lat: 9.3183,
+    lng: -70.6037,
     expected_attendance: 35,
     participants: [
       {
@@ -44,12 +46,14 @@ const FALLBACK_EVENTS = [
     id: "evt-02",
     organizer_id: "usr-003",
     organizer_nickname: "TallerRaiz",
-    title: "Sábado de Restauración y Segundo Ciclo",
+    title: "Sábado de Restauración y Segundo Ciclo · La Beatriz",
     description:
-      "Taller y punto de acopio para muebles que requieran ajustes menores, lijado, bisagras o piezas reutilizables por la comunidad.",
+      "Taller y punto de acopio en Valera para muebles que requieran ajustes menores, lijado, bisagras o piezas reutilizables por la comunidad.",
     event_datetime: "2026-12-05T10:00:00",
-    place_name: "Cancha Techada La Hoyada",
-    zone_name: "La Hoyada",
+    place_name: "Cancha Techada La Beatriz",
+    zone_name: "La Beatriz · Valera",
+    lat: 9.3126,
+    lng: -70.6124,
     expected_attendance: 25,
     participants: [
       {
@@ -184,12 +188,18 @@ export default function EventsPage({ onOpenAuthModal }) {
       return;
     }
 
+    const chosenZone = form.zone_name.trim() || "Valera, Trujillo";
+    const baseLat = Number(user?.approx_lat) || 9.3177;
+    const baseLng = Number(user?.approx_lng) || -70.6036;
+
     const payload = {
       title: form.title.trim(),
       description: form.description.trim(),
       event_datetime: form.event_datetime,
       place_name: form.place_name.trim(),
-      zone_name: form.zone_name.trim() || "Zona comunitaria",
+      zone_name: chosenZone,
+      lat: baseLat,
+      lng: baseLng,
       expected_attendance: Number(form.expected_attendance) || 20,
     };
 
@@ -213,7 +223,7 @@ export default function EventsPage({ onOpenAuthModal }) {
     setSelectedEventId(newEvent.id);
     setForm(INITIAL_EVENT_FORM);
     setShowCreateForm(false);
-    setFeedbackMsg("Evento de recolección creado y publicado para la comunidad.");
+    setFeedbackMsg("Evento de recolección en Valera creado y publicado.");
   };
 
   const getCounts = (evt) => {
@@ -235,18 +245,17 @@ export default function EventsPage({ onOpenAuthModal }) {
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-6">
-      {/* Encabezado de la sección */}
       <div className="mb-6 flex flex-col justify-between gap-4 rounded-2xl border border-stone-200/90 bg-white p-5 shadow-xs sm:flex-row sm:items-center">
         <div>
           <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-[#2D6A4F]">
             <Sparkles className="h-3.5 w-3.5" />
-            Jornadas ReUsa
+            Jornadas ReUsa · Valera, Trujillo
           </span>
           <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-stone-900">
             Eventos de Recolección y Encuentros
           </h1>
           <p className="mt-1 text-sm text-stone-600">
-            Consulta los detalles de cada jornada, revisa la asistencia esperada y súmate como asistente o donante.
+            Consulta los detalles de cada jornada en Valera, revisa la asistencia esperada y súmate como asistente o donante.
           </p>
         </div>
 
@@ -275,14 +284,13 @@ export default function EventsPage({ onOpenAuthModal }) {
         </div>
       </div>
 
-      {/* Formulario de creación exclusivo para ReLeaders */}
       {isReLeader && showCreateForm && (
         <form
           onSubmit={handleCreateEvent}
           className="mb-6 space-y-4 rounded-2xl border border-emerald-200 bg-white p-6 shadow-xs"
         >
           <h2 className="text-base font-extrabold text-stone-900">
-            Nuevo Evento de Recolección (ReLeader @{currentNickname})
+            Nuevo Evento de Recolección en Valera (ReLeader @{currentNickname})
           </h2>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -297,7 +305,7 @@ export default function EventsPage({ onOpenAuthModal }) {
                 onChange={(e) =>
                   setForm((prev) => ({ ...prev, title: e.target.value }))
                 }
-                placeholder="Ej. Recolección comunitaria de mobiliario"
+                placeholder="Ej. Recolección comunitaria en Las Acacias"
                 className="w-full rounded-xl border border-stone-200 bg-[#FAF9F6] px-3.5 py-2 text-sm focus:border-[#2D6A4F] focus:bg-white focus:outline-none"
               />
             </div>
@@ -323,7 +331,7 @@ export default function EventsPage({ onOpenAuthModal }) {
 
             <div>
               <label className="mb-1 block text-xs font-bold text-stone-700">
-                Lugar o punto de encuentro *
+                Lugar o punto de encuentro en Valera *
               </label>
               <input
                 type="text"
@@ -332,7 +340,22 @@ export default function EventsPage({ onOpenAuthModal }) {
                 onChange={(e) =>
                   setForm((prev) => ({ ...prev, place_name: e.target.value }))
                 }
-                placeholder="Ej. Plaza Bolívar / Casa Comunal"
+                placeholder="Ej. Plaza Bolívar de Valera / Av. Bolívar"
+                className="w-full rounded-xl border border-stone-200 bg-[#FAF9F6] px-3.5 py-2 text-sm focus:border-[#2D6A4F] focus:bg-white focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-bold text-stone-700">
+                Sector en Valera
+              </label>
+              <input
+                type="text"
+                value={form.zone_name}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, zone_name: e.target.value }))
+                }
+                placeholder="Ej. Centro de Valera · Trujillo"
                 className="w-full rounded-xl border border-stone-200 bg-[#FAF9F6] px-3.5 py-2 text-sm focus:border-[#2D6A4F] focus:bg-white focus:outline-none"
               />
             </div>
@@ -405,7 +428,6 @@ export default function EventsPage({ onOpenAuthModal }) {
         <div className="h-64 animate-pulse rounded-2xl border border-stone-200 bg-white" />
       ) : (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-          {/* Columna Izquierda: Lista de eventos */}
           <div className="space-y-3 lg:col-span-5">
             {events.map((evt) => {
               const isSelected = selectedEvent?.id === evt.id;
@@ -460,7 +482,6 @@ export default function EventsPage({ onOpenAuthModal }) {
             })}
           </div>
 
-          {/* Columna Derecha: Vista Detallada del Evento Seleccionado */}
           <div className="lg:col-span-7">
             {selectedEvent ? (
               <article className="rounded-3xl border border-stone-200/90 bg-white p-6 shadow-xs">
@@ -506,7 +527,6 @@ export default function EventsPage({ onOpenAuthModal }) {
                         {selectedEvent.description}
                       </p>
 
-                      {/* Asistencia esperada vs confirmados */}
                       <div className="mt-5 rounded-2xl border border-stone-200 bg-[#FAF9F6] p-4">
                         <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                           <span className="font-bold text-stone-800">
@@ -539,7 +559,6 @@ export default function EventsPage({ onOpenAuthModal }) {
                         </div>
                       </div>
 
-                      {/* Botones de acción: Unirme como asistente / Unirme como donante */}
                       <div className="mt-5 flex flex-col gap-3 sm:flex-row">
                         <button
                           type="button"
@@ -580,7 +599,6 @@ export default function EventsPage({ onOpenAuthModal }) {
                         </button>
                       </div>
 
-                      {/* Lista de participantes confirmados */}
                       <div className="mt-6 border-t border-stone-100 pt-4">
                         <h3 className="text-xs font-bold uppercase tracking-wide text-stone-500">
                           Participantes confirmados ({counts.confirmedCount})

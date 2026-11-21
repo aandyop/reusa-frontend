@@ -11,6 +11,7 @@ import RequestModal from "./components/chat/RequestModal";
 import ApplicantReviewModal from "./components/chat/ApplicantReviewModal";
 import ChatDrawer from "./components/chat/ChatDrawer";
 
+// Todos los perfiles de prueba ubicados en Valera, Estado Trujillo, Venezuela
 const DEMO_PROFILES = {
   verified: {
     token: "demo-token-verified",
@@ -24,9 +25,9 @@ const DEMO_PROFILES = {
       completed_donations_count: 3,
       completed_received_count: 2,
       negative_reports_count: 0,
-      approx_zone_name: "Sector El Mirador",
-      approx_lat: 8.6095,
-      approx_lng: -70.6082,
+      approx_zone_name: "Las Acacias · Valera",
+      approx_lat: 9.3177,
+      approx_lng: -70.6036,
     },
   },
   releader: {
@@ -41,9 +42,9 @@ const DEMO_PROFILES = {
       completed_donations_count: 7,
       completed_received_count: 4,
       negative_reports_count: 0,
-      approx_zone_name: "Centro Histórico",
-      approx_lat: 8.6128,
-      approx_lng: -70.6051,
+      approx_zone_name: "Centro de Valera · Trujillo",
+      approx_lat: 9.3189,
+      approx_lng: -70.6041,
     },
   },
   unverified: {
@@ -58,9 +59,9 @@ const DEMO_PROFILES = {
       completed_donations_count: 0,
       completed_received_count: 0,
       negative_reports_count: 0,
-      approx_zone_name: "Las Acacias",
-      approx_lat: 8.6152,
-      approx_lng: -70.6114,
+      approx_zone_name: "La Beatriz · Valera",
+      approx_lat: 9.3125,
+      approx_lng: -70.6122,
     },
   },
 };
@@ -84,7 +85,7 @@ function QuickAuthModal({ isOpen, onClose }) {
     } catch (err) {
       setErrorMsg(
         err?.message ||
-          "No se pudo conectar con /api/auth/login. Usa un acceso rápido de prueba mientras levantas el backend."
+          "No se pudo conectar con /api/auth/login. Usa un acceso rápido de prueba en Valera mientras levantas el backend."
       );
     } finally {
       setSubmitting(false);
@@ -97,7 +98,6 @@ function QuickAuthModal({ isOpen, onClose }) {
     localStorage.setItem("reusa_token", chosen.token);
     localStorage.setItem("reusa_user", JSON.stringify(chosen.user));
     updateUserState(chosen.user);
-    // Sincroniza el token en memoria recargando suavemente si es necesario
     window.location.reload();
   };
 
@@ -116,7 +116,7 @@ function QuickAuthModal({ isOpen, onClose }) {
               id="auth-modal-title"
               className="text-base font-extrabold text-stone-900"
             >
-              Ingresar a ReUsa
+              Ingresar a ReUsa · Valera
             </h2>
           </div>
           <button
@@ -130,10 +130,9 @@ function QuickAuthModal({ isOpen, onClose }) {
         </div>
 
         <div className="space-y-5 p-6">
-          {/* Accesos rápidos para probar roles en frontend */}
           <div className="space-y-2 rounded-2xl border border-emerald-200 bg-emerald-50/75 p-4">
             <p className="text-xs font-bold text-[#2D6A4F]">
-              Probar roles de interfaz (sin backend):
+              Perfiles de prueba en Valera, Trujillo:
             </p>
             <div className="grid grid-cols-1 gap-2">
               <button
@@ -141,7 +140,7 @@ function QuickAuthModal({ isOpen, onClose }) {
                 onClick={() => handleDemoLogin("verified")}
                 className="flex items-center justify-between rounded-xl border border-emerald-200 bg-white px-3.5 py-2 text-left text-xs font-bold text-stone-800 hover:bg-emerald-50"
               >
-                <span>@NomadaVerde (Verificado · 3/5 donaciones)</span>
+                <span>@NomadaVerde · Las Acacias (Verificado · 3/5)</span>
                 <ShieldCheck className="h-4 w-4 text-[#2D6A4F]" />
               </button>
 
@@ -150,7 +149,7 @@ function QuickAuthModal({ isOpen, onClose }) {
                 onClick={() => handleDemoLogin("releader")}
                 className="flex items-center justify-between rounded-xl border border-emerald-200 bg-white px-3.5 py-2 text-left text-xs font-bold text-stone-800 hover:bg-emerald-50"
               >
-                <span>@LiderSostenible (ReLeader · Eventos y Blog)</span>
+                <span>@LiderSostenible · Centro de Valera (ReLeader)</span>
                 <Sparkles className="h-4 w-4 text-[#2D6A4F]" />
               </button>
 
@@ -159,7 +158,7 @@ function QuickAuthModal({ isOpen, onClose }) {
                 onClick={() => handleDemoLogin("unverified")}
                 className="flex items-center justify-between rounded-xl border border-stone-200 bg-white px-3.5 py-2 text-left text-xs font-semibold text-stone-600 hover:bg-stone-100"
               >
-                <span>@VecinoCurioso (Básico sin verificar)</span>
+                <span>@VecinoCurioso · La Beatriz (Básico sin verificar)</span>
               </button>
             </div>
           </div>
@@ -232,7 +231,7 @@ function ReUsaShell() {
   const handlePublicationCreated = (createdPub) => {
     setNewPublication(createdPub);
     setActiveTab("feed");
-    showToast(`Artículo "${createdPub.title}" publicado en el feed.`);
+    showToast(`Artículo "${createdPub.title}" publicado en Valera.`);
   };
 
   const handleRequestSubmitted = (pubId) => {
@@ -263,7 +262,7 @@ function ReUsaShell() {
         {
           id: `msg-welcome-${Date.now()}`,
           sender_id: user?.id || "usr-002",
-          body: "¡Solicitud aprobada! Por aquí podemos coordinar la hora y punto exacto de entrega.",
+          body: "¡Solicitud aprobada! Por aquí podemos coordinar la hora y punto exacto en Valera.",
           created_at: new Date().toISOString(),
         },
       ],
@@ -277,7 +276,6 @@ function ReUsaShell() {
   };
 
   const handleDeliveryConfirmed = (publicationId) => {
-    // Al marcar ENTREGADO, desaparece del feed principal
     setRemovedPubIds((prev) =>
       prev.includes(publicationId) ? prev : [...prev, publicationId]
     );
@@ -336,7 +334,6 @@ function ReUsaShell() {
         <ProfilePage onOpenAuthModal={() => setIsAuthModalOpen(true)} />
       )}
 
-      {/* Modales y Drawer de Flujos */}
       <PublishModal
         isOpen={isPublishModalOpen}
         onClose={() => setIsPublishModalOpen(false)}
@@ -365,7 +362,6 @@ function ReUsaShell() {
         extraConversations={extraConversations}
         onDeliveryConfirmed={(pubId) => {
           handleDeliveryConfirmed(pubId);
-          // Filtra la publicación entregada si está en el feed
           if (newPublication?.id === pubId) {
             setNewPublication(null);
           }

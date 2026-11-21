@@ -7,9 +7,18 @@ import {
   Clock,
   Layers,
   Crosshair,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
 
-const DEFAULT_COORDS = { lat: 8.6095, lng: -70.6082 };
+// 9°18'13.6"N 70°36'44.3"W convertido a coordenadas decimales
+const FIXED_UNREGISTERED_COORDS = {
+  lat: 9.3037778,
+  lng: -70.6123056,
+};
+
+const GREEN_CENTER_COLOR = "#2D6A4F";
+const TERRACOTTA_COLOR = "#E76F51";
 
 function calculateDistanceKm(lat1, lng1, lat2, lng2) {
   const toRad = (deg) => (deg * Math.PI) / 180;
@@ -38,35 +47,29 @@ export default function ProximitySidebar({
   const layersGroupRef = useRef(null);
 
   const [radiusKm, setRadiusKm] = useState(5);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [userCoords, setUserCoords] = useState(
-    userApproxLocation || DEFAULT_COORDS
+    userApproxLocation?.lat && userApproxLocation?.lng
+      ? {
+          lat: Number(userApproxLocation.lat),
+          lng: Number(userApproxLocation.lng),
+        }
+      : FIXED_UNREGISTERED_COORDS
   );
   const [selectedPinLabel, setSelectedPinLabel] = useState(null);
 
-  // Obtener ubicación actual del navegador si el usuario lo autoriza
   useEffect(() => {
     if (userApproxLocation?.lat && userApproxLocation?.lng) {
-      setUserCoords(userApproxLocation);
+      setUserCoords({
+        lat: Number(userApproxLocation.lat),
+        lng: Number(userApproxLocation.lng),
+      });
       return;
     }
 
-    if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setUserCoords({
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
-          });
-        },
-        () => {
-          // Si rechaza o no está disponible, conserva coordenadas por defecto
-        },
-        { enableHighAccuracy: false, timeout: 6000 }
-      );
-    }
+    setUserCoords(FIXED_UNREGISTERED_COORDS);
   }, [userApproxLocation]);
 
-  // Publicaciones filtradas por radio de cercanía (excluye ENTREGADO)
   const nearbyPublications = useMemo(() => {
     return publications
       .filter((pub) => pub.status !== "ENTREGADO" && pub.lat && pub.lng)
@@ -82,7 +85,6 @@ export default function ProximitySidebar({
       .filter((pub) => pub.distanceKm <= radiusKm);
   }, [publications, userCoords, radiusKm]);
 
-  // Inicializar mapa Leaflet una sola vez
   useEffect(() => {
     if (!mapContainerRef.current || mapInstanceRef.current) return;
 
@@ -109,7 +111,23 @@ export default function ProximitySidebar({
     };
   }, []);
 
-  // Actualizar marcadores: Ubicación actual, Círculos Rojos y Centros de Donación
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+    }, 180);
+
+    return () => clearTimeout(timer);
+  }, [isExpanded]);
+
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    map.setView([userCoords.lat, userCoords.lng], 14, { animate: true });
+  }, [userCoords.lat, userCoords.lng]);
+
   useEffect(() => {
     const map = mapInstanceRef.current;
     const layersGroup = layersGroupRef.current;
@@ -117,18 +135,21 @@ export default function ProximitySidebar({
 
     layersGroup.clearLayers();
 
-    // 1. Marcador de ubicación actual (punto azul)
+    // 1. Ubicación fija / usuario (punto azul)
     const userMarker = L.circleMarker([userCoords.lat, userCoords.lng], {
       radius: 8,
       color: "#FFFFFF",
       weight: 2.5,
       fillColor: "#2563EB",
       fillOpacity: 1,
-    }).bindTooltip("Tu ubicación actual", { direction: "top" });
+    }).bindTooltip(
+      `Ubicación: ${userCoords.lat.toFixed(4)}, ${userCoords.lng.toFixed(4)}`,
+      { direction: "top" }
+    );
 
     userMarker.addTo(layersGroup);
 
-    // 2. Círculos rojos de publicaciones cercanas (zona aproximada por privacidad)
+    // 2. Círculos rojos de publicaciones cercanas (área aproximada por privacidad)
     nearbyPublications.forEach((pub) => {
       const isHovered = hoveredPublicationId === pub.id;
       const circle = L.circle([Number(pub.lat), Number(pub.lng)], {
@@ -152,7 +173,7 @@ export default function ProximitySidebar({
       circle.addTo(layersGroup);
     });
 
-    // 3. Marcadores de Centros de Donación Aliados (verde bosque)
+    // 3. Marcadores de Centros de Donación en el mapa con el color verde original (#2D6A4F)
     donationCenters.forEach((center) => {
       if (!center.lat || !center.lng) return;
 
@@ -162,13 +183,13 @@ export default function ProximitySidebar({
           radius: 7,
           color: "#FFFFFF",
           weight: 2,
-          fillColor: "#2D6A4F",
+          fillColor: GREEN_CENTER_COLOR,
           fillOpacity: 1,
         }
-      ).bindTooltip(`Centro aliado: ${center.name}`, { direction: "top" });
+      ).bindTooltip(`Centro de donación: ${center.name}`, { direction: "top" });
 
       centerMarker.on("click", () => {
-        setSelectedPinLabel(`Centro aliado: ${center.name}`);
+        setSelectedPinLabel(`Centro de donación: ${center.name}`);
       });
 
       centerMarker.addTo(layersGroup);
@@ -194,7 +215,7 @@ export default function ProximitySidebar({
     mapInstanceRef.current.setView([Number(center.lat), Number(center.lng)], 15, {
       animate: true,
     });
-    setSelectedPinLabel(`Centro aliado: ${center.name}`);
+    setSelectedPinLabel(`Centro de donación: ${center.name}`);
   };
 
   return (
@@ -202,14 +223,17 @@ export default function ProximitySidebar({
       aria-label="Mapa de cercanía y centros de donación"
       className="space-y-4 lg:sticky lg:top-20"
     >
-      {/* Tarjeta 1: Mapa de Proximidad con Círculos Rojos */}
+      {/* Tarjeta 1: Mapa de Proximidad con Círculos Rojos, Centros Verdes y Botón Agrandar */}
       <div className="overflow-hidden rounded-2xl border border-stone-200/90 bg-white shadow-xs">
         <div className="flex items-center justify-between border-b border-stone-100 px-4 py-3">
           <div className="flex items-center gap-2">
-            <Navigation className="h-4 w-4 text-[#2D6A4F]" />
+            <Navigation
+              className="h-4 w-4"
+              style={{ color: GREEN_CENTER_COLOR }}
+            />
             <div>
               <h2 className="text-sm font-bold text-stone-900">
-                Radar Comunitario
+                Radar de Proximidad
               </h2>
               <p className="text-[11px] text-stone-500">
                 {nearbyPublications.length} publicaciones a menos de {radiusKm} km
@@ -217,14 +241,40 @@ export default function ProximitySidebar({
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={handleRecenter}
-            title="Centrar en mi ubicación actual"
-            className="rounded-lg border border-stone-200 bg-[#FAF9F6] p-1.5 text-stone-600 transition hover:bg-stone-100 hover:text-stone-900"
-          >
-            <Crosshair className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={handleRecenter}
+              title="Centrar en ubicación 9°18'13.6&quot;N 70°36'44.3&quot;W"
+              className="rounded-lg border border-stone-200 bg-[#FAF9F6] p-1.5 text-stone-600 transition hover:bg-stone-100 hover:text-stone-900"
+            >
+              <Crosshair className="h-4 w-4" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsExpanded((prev) => !prev)}
+              title={isExpanded ? "Reducir tamaño del mapa" : "Agrandar mapa"}
+              aria-label={isExpanded ? "Reducir mapa" : "Agrandar mapa"}
+              className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition ${
+                isExpanded
+                  ? "border-[#2D6A4F] bg-emerald-50 text-[#2D6A4F]"
+                  : "border-stone-200 bg-[#FAF9F6] text-stone-700 hover:bg-stone-100"
+              }`}
+            >
+              {isExpanded ? (
+                <>
+                  <Minimize2 className="h-3.5 w-3.5" />
+                  <span>Reducir</span>
+                </>
+              ) : (
+                <>
+                  <Maximize2 className="h-3.5 w-3.5" />
+                  <span>Agrandar</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
 
         {/* Selector de Radio (1 km, 3 km, 5 km) */}
@@ -249,23 +299,30 @@ export default function ProximitySidebar({
         </div>
 
         {/* Contenedor del Mapa Leaflet */}
-        <div className="relative h-64 w-full bg-stone-100">
-          <div ref={mapContainerRef} className="h-full w-full z-0" />
+        <div
+          className={`relative w-full bg-stone-100 transition-all duration-300 ${
+            isExpanded ? "h-[28rem]" : "h-64"
+          }`}
+        >
+          <div ref={mapContainerRef} className="z-0 h-full w-full" />
         </div>
 
-        {/* Leyenda de Privacidad y Marcadores */}
+        {/* Leyenda con Centros de Donación en Verde (#2D6A4F) */}
         <div className="border-t border-stone-100 px-4 py-2.5 text-[11px] text-stone-600">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
             <span className="inline-flex items-center gap-1.5">
               <span className="h-2.5 w-2.5 rounded-full bg-blue-600 ring-2 ring-blue-200" />
-              Tu ubicación
+              Ubicación base (9°18&apos;13.6&quot;N 70°36&apos;44.3&quot;W)
             </span>
             <span className="inline-flex items-center gap-1.5">
               <span className="h-2.5 w-2.5 rounded-full bg-red-500/70 ring-1 ring-red-600" />
               Publicación cercana (área aprox.)
             </span>
             <span className="inline-flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-[#2D6A4F]" />
+              <span
+                className="h-2.5 w-2.5 rounded-full"
+                style={{ backgroundColor: GREEN_CENTER_COLOR }}
+              />
               Centro de donación
             </span>
           </div>
@@ -278,10 +335,20 @@ export default function ProximitySidebar({
         </div>
       </div>
 
-      {/* Tarjeta 2: Centros de Donación Aliados Destacados */}
-      <div className="rounded-2xl border border-emerald-200/80 bg-gradient-to-b from-emerald-50/70 to-white p-4 shadow-xs">
+      {/* Tarjeta 2: Centros de Donación Aliados en Terracota (#E76F51) */}
+      <div
+        style={{
+          borderColor: "rgba(231, 111, 81, 0.35)",
+          backgroundImage:
+            "linear-gradient(to bottom, rgba(231, 111, 81, 0.10), #ffffff)",
+        }}
+        className="rounded-2xl border p-4 shadow-xs"
+      >
         <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#2D6A4F] text-white">
+          <div
+            style={{ backgroundColor: TERRACOTTA_COLOR }}
+            className="flex h-8 w-8 items-center justify-center rounded-xl text-white"
+          >
             <Building2 className="h-4 w-4" />
           </div>
           <div>
@@ -289,25 +356,32 @@ export default function ProximitySidebar({
               Centros de Donación Aliados
             </h2>
             <p className="text-[11px] text-stone-600">
-              Puntos físicos verificados para entregas directas
+              Puntos físicos verificados para entregar artículos
             </p>
           </div>
         </div>
 
         {donationCenters.length === 0 ? (
           <p className="mt-3 rounded-xl bg-white/80 p-3 text-xs text-stone-500">
-            No hay centros de donación registrados en esta zona todavía.
+            No hay centros de donación registrados todavía.
           </p>
         ) : (
           <ul className="mt-3 space-y-2.5">
             {donationCenters.map((center) => (
               <li
                 key={center.id}
-                className="rounded-xl border border-emerald-200/70 bg-white p-3 transition hover:border-[#2D6A4F]/50"
+                style={{ borderColor: "rgba(231, 111, 81, 0.28)" }}
+                className="rounded-xl border bg-white p-3 transition hover:border-[#E76F51]"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <span className="inline-block rounded-md bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#2D6A4F]">
+                    <span
+                      style={{
+                        backgroundColor: "rgba(231, 111, 81, 0.14)",
+                        color: TERRACOTTA_COLOR,
+                      }}
+                      className="inline-block rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+                    >
                       {center.center_type}
                     </span>
                     <h3 className="mt-1 text-xs font-bold text-stone-900">
@@ -319,7 +393,8 @@ export default function ProximitySidebar({
                     type="button"
                     onClick={() => handleFocusCenter(center)}
                     title="Ver centro en el mapa"
-                    className="shrink-0 rounded-lg bg-[#FAF9F6] p-1.5 text-[#2D6A4F] ring-1 ring-stone-200 transition hover:bg-emerald-50"
+                    style={{ color: TERRACOTTA_COLOR }}
+                    className="shrink-0 rounded-lg bg-[#FAF9F6] p-1.5 ring-1 ring-stone-200 transition hover:bg-[#E76F51]/10"
                   >
                     <MapPin className="h-3.5 w-3.5" />
                   </button>

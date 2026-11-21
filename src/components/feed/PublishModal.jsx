@@ -26,6 +26,10 @@ const REWARD_BY_SIZE = {
   XL: 50,
 };
 
+// 9°18'13.6"N 70°36'44.3"W
+const FIXED_DEFAULT_LAT = 9.3037778;
+const FIXED_DEFAULT_LNG = -70.6123056;
+
 const INITIAL_FORM = {
   title: "",
   description: "",
@@ -55,7 +59,7 @@ export default function PublishModal({
 
   const estimatedPoints = REWARD_BY_SIZE[form.size_scale] || 25;
   const nickname = user?.nickname || "vecino_reusa";
-  const defaultZone = user?.approx_zone_name || "Zona cercana";
+  const defaultZone = user?.approx_zone_name || "Campo Alegre · Valera";
 
   const handleChange = (field, value) => {
     setForm((prev) => ({
@@ -109,10 +113,10 @@ export default function PublishModal({
     }
 
     const chosenZone = form.zone_name.trim() || defaultZone;
-    const baseLat = Number(user?.approx_lat) || 8.6095;
-    const baseLng = Number(user?.approx_lng) || -70.6082;
-    const jitterLat = (Math.random() - 0.5) * 0.008;
-    const jitterLng = (Math.random() - 0.5) * 0.008;
+    const baseLat = Number(user?.approx_lat) || FIXED_DEFAULT_LAT;
+    const baseLng = Number(user?.approx_lng) || FIXED_DEFAULT_LNG;
+    const jitterLat = (Math.random() - 0.5) * 0.006;
+    const jitterLng = (Math.random() - 0.5) * 0.006;
 
     const payload = {
       title: form.title.trim(),
@@ -151,7 +155,6 @@ export default function PublishModal({
       setForm(INITIAL_FORM);
       onClose?.();
     } catch (err) {
-      // Si el backend aún no está activo en desarrollo local, permite previsualizar localmente si se desea
       if (err?.status === 403) {
         setErrorMsg(
           err.message ||
@@ -198,7 +201,6 @@ export default function PublishModal({
       className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/55 p-4 backdrop-blur-xs"
     >
       <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-stone-200 bg-[#FAF9F6] shadow-2xl">
-        {/* Encabezado */}
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-stone-200 bg-white px-6 py-4">
           <div>
             <h2
@@ -234,7 +236,6 @@ export default function PublishModal({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5 p-6">
-          {/* Bloqueo visual si el usuario aún no está verificado */}
           {!isVerified && (
             <div className="flex flex-col justify-between gap-3 rounded-2xl border border-amber-300 bg-amber-50 p-4 sm:flex-row sm:items-center">
               <div className="flex items-start gap-2.5">
@@ -263,19 +264,26 @@ export default function PublishModal({
             </div>
           )}
 
-          {/* Nota de privacidad por Nickname + Frase Poética */}
-          <div className="rounded-2xl border border-emerald-200/90 bg-emerald-50/80 p-4">
+          {/* Mensaje solidario en terracota (#E76F51) */}
+          <div
+            style={{
+              borderColor: "rgba(231, 111, 81, 0.35)",
+              backgroundColor: "rgba(231, 111, 81, 0.10)",
+            }}
+            className="rounded-2xl border p-4"
+          >
             <div className="flex items-start gap-2.5">
-              <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-[#2D6A4F]" />
-              <div className="space-y-1 text-xs text-stone-700">
-                <p className="font-semibold text-[#2D6A4F]">
-                  Privacidad con Nickname (@{nickname}):
+              <Sparkles
+                style={{ color: "#E76F51" }}
+                className="mt-0.5 h-4 w-4 shrink-0"
+              />
+              <div className="space-y-1 text-xs leading-relaxed text-stone-700">
+                <p style={{ color: "#E76F51" }} className="font-extrabold">
+                  Dona a las víctimas del terremoto del 24 de Junio.
                 </p>
                 <p>
-                  No mostramos tu nombre real ni tu dirección exacta en el feed: en el mapa solo aparece un círculo rojo aproximado hasta que apruebes una reserva y lo acuerdes en el chat.
-                </p>
-                <p className="pt-1 italic text-stone-600">
-                  “Dar sin firmar el gesto es dejar que el objeto hable por sí mismo: lo que hoy sueltas en silencio, mañana se convierte en el hogar de alguien más.”
+                  Cada artículo publicado en buen estado o listo para reutilizarse ayuda a reconstruir hogares y acompañar a familias afectadas. Tu identidad se protege con tu{" "}
+                  <strong className="font-semibold text-stone-900">@{nickname}</strong> y el mapa muestra un círculo aproximado hasta que apruebes una reserva en el chat.
                 </p>
               </div>
             </div>
@@ -287,7 +295,6 @@ export default function PublishModal({
             </div>
           )}
 
-          {/* Título y Descripción */}
           <div className="grid grid-cols-1 gap-4">
             <div>
               <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-stone-700">
@@ -318,7 +325,6 @@ export default function PublishModal({
             </div>
           </div>
 
-          {/* Categoría y Estado Físico */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-stone-700">
@@ -355,7 +361,6 @@ export default function PublishModal({
             </div>
           </div>
 
-          {/* Modalidad (Donación o Trueque) y Medidas (Tamaño y Peso S - XL) */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-stone-700">
@@ -412,7 +417,6 @@ export default function PublishModal({
             </div>
           </div>
 
-          {/* Preferencia de intercambio si eligió Trueque */}
           {form.modality === "Trueque" && (
             <div>
               <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-stone-700">
@@ -428,7 +432,6 @@ export default function PublishModal({
             </div>
           )}
 
-          {/* Etiquetas rápidas (máx. 3, incluyendo "Está en la calle") */}
           <div>
             <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-stone-700">
               Etiquetas rápidas (hasta 3)
@@ -455,7 +458,6 @@ export default function PublishModal({
             </div>
           </div>
 
-          {/* Zona aproximada e Imagen opcional */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1.5 flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-stone-700">
@@ -486,7 +488,6 @@ export default function PublishModal({
             </div>
           </div>
 
-          {/* Botones de acción */}
           <div className="flex items-center justify-end gap-2.5 border-t border-stone-200 pt-4">
             <button
               type="button"
