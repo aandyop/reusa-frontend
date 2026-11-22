@@ -12,6 +12,7 @@ import {
   Images,
 } from "lucide-react";
 import { REPOINTS_COLOR } from "../../utils/constants";
+import PublicationActionButtons from "./PublicationActionButtons";
 
 const PRIMARY_GREEN = "#2d6a4f";
 const SECONDARY_TERRACOTTA = "#E76F51";
@@ -35,11 +36,14 @@ export default function PublicationCard({
   publication,
   currentUser = null,
   isHighlighted = false,
+  readOnlyHistory = false,
   onHoverChange,
   onSelectPublication,
   onRequestItem,
   onInspectRequests,
   onOpenChat,
+  onRequireAuth,
+  onActionFeedback,
 }) {
   if (!publication) return null;
 
@@ -77,7 +81,6 @@ export default function PublicationCard({
   const statusMeta = STATUS_BADGE_MAP[status] || STATUS_BADGE_MAP.DISPONIBLE;
   const isTrade = modality === "Trueque";
 
-  // Siempre priorizar la imagen principal elegida (primary_image o images[0])
   const allImages = (() => {
     const list = [];
     if (primary_image) list.push(primary_image);
@@ -103,9 +106,11 @@ export default function PublicationCard({
     <article
       onMouseEnter={() => onHoverChange?.(id)}
       onMouseLeave={() => onHoverChange?.(null)}
-      onClick={() => onSelectPublication?.(publication)}
+      onClick={() => !readOnlyHistory && onSelectPublication?.(publication)}
       style={isHighlighted ? { borderColor: PRIMARY_GREEN } : undefined}
-      className={`cursor-pointer rounded-2xl border bg-white p-5 transition ${
+      className={`rounded-2xl border bg-white p-5 transition ${
+        readOnlyHistory ? "cursor-default" : "cursor-pointer"
+      } ${
         isHighlighted
           ? "bg-emerald-50/20 shadow-md ring-1 ring-[#2d6a4f]/30"
           : "border-stone-200/90 shadow-2xs hover:border-[#2d6a4f]/60"
@@ -178,7 +183,7 @@ export default function PublicationCard({
         </div>
       </div>
 
-      {/* Cuerpo principal: Portada (imagen principal) + Título + Descripción */}
+      {/* Cuerpo principal: Portada + Título + Descripción */}
       <div className="mt-3.5 flex flex-col gap-4 sm:flex-row">
         {coverImage && (
           <div className="relative h-36 w-full shrink-0 overflow-hidden rounded-xl border border-stone-200 bg-stone-100 sm:w-44">
@@ -267,73 +272,88 @@ export default function PublicationCard({
         </div>
       </div>
 
-      {/* Pie de tarjeta: Acciones en color principal verde (#2d6a4f) */}
+      {/* Pie de tarjeta: Guardar, Compartir, Reportar y Acciones principales */}
       <div
         onClick={(e) => e.stopPropagation()}
         className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-stone-100 pt-3.5"
       >
-        <button
-          type="button"
-          onClick={() => onSelectPublication?.(publication)}
-          className="text-[11px] font-bold text-[#2d6a4f] underline-offset-2 hover:underline"
-        >
-          Ver detalles y mapa →
-        </button>
-
         <div className="flex flex-wrap items-center gap-2">
-          {isOwner && (
+          {!readOnlyHistory && (
             <button
               type="button"
-              style={{ backgroundColor: PRIMARY_GREEN }}
-              onClick={() => onInspectRequests?.(publication)}
-              className="inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold text-white transition hover:opacity-90"
+              onClick={() => onSelectPublication?.(publication)}
+              className="text-[11px] font-bold text-[#2d6a4f] underline-offset-2 hover:underline"
             >
-              <Inbox className="h-3.5 w-3.5" />
-              <span>Solicitudes</span>
-              {pending_requests_count > 0 && (
-                <span
-                  style={{ backgroundColor: SECONDARY_TERRACOTTA }}
-                  className="inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-extrabold text-white"
-                >
-                  {pending_requests_count}
-                </span>
-              )}
+              Ver detalles y mapa →
             </button>
           )}
 
-          {!isOwner && status === "DISPONIBLE" && (
-            <button
-              type="button"
-              style={{ backgroundColor: PRIMARY_GREEN }}
-              onClick={() => onRequestItem?.(publication)}
-              className="inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold text-white transition hover:opacity-90"
-            >
-              <span>
-                {isTrade ? "Proponer trueque" : "Solicitar artículo"}
-              </span>
-            </button>
-          )}
-
-          {(isOwner || isApprovedApplicant) && status === "RESERVADO" && (
-            <button
-              type="button"
-              style={{ backgroundColor: PRIMARY_GREEN }}
-              onClick={() => onOpenChat?.(publication)}
-              className="inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold text-white transition hover:opacity-90"
-            >
-              <MessageSquare className="h-3.5 w-3.5" />
-              <span>Abrir chat de entrega</span>
-              {unread_messages_count > 0 && (
-                <span
-                  style={{ backgroundColor: SECONDARY_TERRACOTTA }}
-                  className="inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-extrabold text-white"
-                >
-                  {unread_messages_count}
-                </span>
-              )}
-            </button>
+          {!readOnlyHistory && status !== "ENTREGADO" && (
+            <PublicationActionButtons
+              publication={publication}
+              onRequireAuth={onRequireAuth}
+              onActionFeedback={onActionFeedback}
+              compact
+            />
           )}
         </div>
+
+        {!readOnlyHistory && (
+          <div className="flex flex-wrap items-center gap-2">
+            {isOwner && (
+              <button
+                type="button"
+                style={{ backgroundColor: PRIMARY_GREEN }}
+                onClick={() => onInspectRequests?.(publication)}
+                className="inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold text-white transition hover:opacity-90"
+              >
+                <Inbox className="h-3.5 w-3.5" />
+                <span>Solicitudes</span>
+                {pending_requests_count > 0 && (
+                  <span
+                    style={{ backgroundColor: SECONDARY_TERRACOTTA }}
+                    className="inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-extrabold text-white"
+                  >
+                    {pending_requests_count}
+                  </span>
+                )}
+              </button>
+            )}
+
+            {!isOwner && status === "DISPONIBLE" && (
+              <button
+                type="button"
+                style={{ backgroundColor: PRIMARY_GREEN }}
+                onClick={() => onRequestItem?.(publication)}
+                className="inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold text-white transition hover:opacity-90"
+              >
+                <span>
+                  {isTrade ? "Proponer trueque" : "Solicitar artículo"}
+                </span>
+              </button>
+            )}
+
+            {(isOwner || isApprovedApplicant) && status === "RESERVADO" && (
+              <button
+                type="button"
+                style={{ backgroundColor: PRIMARY_GREEN }}
+                onClick={() => onOpenChat?.(publication)}
+                className="inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold text-white transition hover:opacity-90"
+              >
+                <MessageSquare className="h-3.5 w-3.5" />
+                <span>Abrir chat de entrega</span>
+                {unread_messages_count > 0 && (
+                  <span
+                    style={{ backgroundColor: SECONDARY_TERRACOTTA }}
+                    className="inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-extrabold text-white"
+                  >
+                    {unread_messages_count}
+                  </span>
+                )}
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </article>
   );

@@ -14,6 +14,7 @@ import {
   Tag,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useSavedAndReports } from "../context/SavedAndReportsContext";
 import { publicationsService } from "../services/publicationsService";
 import {
   donationCentersService,
@@ -47,7 +48,6 @@ const STORAGE_KEYS = {
   events: "reusa_events_cache",
   blog: "reusa_blog_cache",
   users: "reusa_users_cache",
-  favorites: "reusa_favorites_cache",
 };
 
 const FALLBACK_USERS = [
@@ -335,16 +335,20 @@ function extractList(res, nestedKey) {
 
 export default function FeedPage({
   externalNewPublication = null,
+  initialSelectedPublicationId = null,
+  onClearInitialSelectedPublication,
   unreadChatCount = 0,
   onRequestItem,
   onInspectRequests,
   onOpenChat,
   onOpenAuthModal,
   onOpenDonorProfile,
+  onActionFeedback,
 }) {
-  const { token, user, isAuthenticated } = useAuth();
+  const { token, user } = useAuth();
+  const { isPublicationSaved, toggleSavePublication } = useSavedAndReports();
 
-  const [feedTab, setFeedTab] = useState("all"); // "all" | "publications" | "events" | "blog" | "users"
+  const [feedTab, setFeedTab] = useState("all");
   const [publications, setPublications] = useState(() =>
     readLocalArray(STORAGE_KEYS.publications, FALLBACK_PUBLICATIONS)
   );
@@ -360,20 +364,15 @@ export default function FeedPage({
   const [communityUsers, setCommunityUsers] = useState(() =>
     readLocalArray(STORAGE_KEYS.users, FALLBACK_USERS)
   );
-  const [favoriteIds, setFavoriteIds] = useState(() =>
-    readLocalArray(STORAGE_KEYS.favorites, [])
-  );
 
   const [filters, setFilters] = useState(INITIAL_FILTERS);
   const [hoveredPubId, setHoveredPubId] = useState(null);
   const [selectedPubId, setSelectedPubId] = useState(null);
 
-  // Vistas individuales normales
   const [activePublicationId, setActivePublicationId] = useState(null);
   const [activeEventId, setActiveEventId] = useState(null);
   const [activeBlogId, setActiveBlogId] = useState(null);
 
-  // Formularios integrados para crear evento o artículo desde sus pestañas
   const [showCreateEventForm, setShowCreateEventForm] = useState(false);
   const [showCreateBlogForm, setShowCreateBlogForm] = useState(false);
 
@@ -512,6 +511,33 @@ export default function FeedPage({
     setSelectedPubId(externalNewPublication.id);
   }, [externalNewPublication]);
 
+  useEffect(() => {
+    if (!initialSelectedPublicationId) return;
+
+    const cachedList = readLocalArray(
+      STORAGE_KEYS.publications,
+      FALLBACK_PUBLICATIONS
+    );
+    const found =
+      publications.find((p) => p.id === initialSelectedPublicationId) ||
+      cachedList.find((p) => p.id === initialSelectedPublicationId);
+
+    if (found) {
+      setPublications((prev) =>
+        prev.some((p) => p.id === found.id) ? prev : [found, ...prev]
+      );
+      setActiveEventId(null);
+      setActiveBlogId(null);
+      setSelectedPubId(found.id);
+      setActivePublicationId(found.id);
+      onClearInitialSelectedPublication?.();
+    }
+  }, [
+    initialSelectedPublicationId,
+    publications,
+    onClearInitialSelectedPublication,
+  ]);
+
   const activePublication = useMemo(() => {
     if (!activePublicationId) return null;
     return publications.find((p) => p.id === activePublicationId) || null;
@@ -531,7 +557,8 @@ export default function FeedPage({
     setActivePublicationId(null);
     setActiveEventId(null);
     setActiveBlogId(null);
-  }, []);
+    onClearInitialSelectedPublication?.();
+  }, [onClearInitialSelectedPublication]);
 
   const handleSelectFeedTab = useCallback(
     (tabId) => {
@@ -543,17 +570,20 @@ export default function FeedPage({
     [clearIndividualViews]
   );
 
-  const handleToggleFavorite = useCallback((pub) => {
-    if (!pub?.id) return;
-    setFavoriteIds((prev) => {
-      const exists = prev.includes(pub.id);
-      const next = exists
-        ? prev.filter((itemId) => itemId !== pub.id)
-        : [...prev, pub.id];
-      writeLocalArray(STORAGE_KEYS.favorites, next);
-      return next;
-    });
-  }, []);
+  const handleToggleFavorite = useCallback(
+    (pub) => {
+      if (!pub?.id) return;
+      const res = toggleSavePublication(pub, onOpenAuthModal);
+      if (res.status === "ok") {
+        onActionFeedback?.(
+          res.saved
+            ? `"${pub.title}" guardado en tu perfil.`
+            : `"${pub.title}" eliminado de tus guardados.`
+        );
+      }
+    },
+    [toggleSavePublication, onOpenAuthModal, onActionFeedback]
+  );
 
   const handleOpenPublicationDetail = useCallback((pub) => {
     if (!pub?.id) return;
@@ -623,7 +653,6 @@ export default function FeedPage({
     [filters.search]
   );
 
-  // Filtrado reactivo y exclusión estricta de artículos ENTREGADO en el feed principal
   const filteredPublications = useMemo(() => {
     return publications.filter((pub) => {
       if (pub.status === "ENTREGADO") return false;
@@ -737,7 +766,6 @@ export default function FeedPage({
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-6">
-      {/* Mensaje solidario de los afectados por el terremoto del 24 de junio en color terracota (#E76F51) */}
       <div
         style={{
           borderColor: "rgba(231, 111, 81, 0.35)",
@@ -797,13 +825,12 @@ export default function FeedPage({
         </div>
       </div>
 
-      {/* Vistas individuales normales para Publicación, Evento o Artículo de Blog */}
       {activePublication ? (
         <PublicationDetailView
           publication={activePublication}
           allPublications={publications}
           currentUser={user}
-          isFavorite={favoriteIds.includes(activePublication.id)}
+          isFavorite={isPublicationSaved(activePublication.id)}
           onToggleFavorite={handleToggleFavorite}
           onSelectPublication={handleOpenPublicationDetail}
           onOpenDonorProfile={onOpenDonorProfile}
@@ -839,7 +866,6 @@ export default function FeedPage({
             aria-label="Feed de publicaciones comunitarias"
             className="space-y-4 lg:col-span-8"
           >
-            {/* Pestañas integradas para ver todo o filtrar Publicaciones, Eventos, Blog y Usuarios */}
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-stone-200/90 bg-white p-2 shadow-2xs">
               <div className="flex flex-wrap items-center gap-1.5">
                 {[
@@ -902,7 +928,6 @@ export default function FeedPage({
                 })}
               </div>
 
-              {/* Acciones rápidas según pestaña de Eventos o Blog */}
               <div className="flex items-center gap-1.5">
                 {feedTab === "events" && (
                   <button
@@ -1005,7 +1030,6 @@ export default function FeedPage({
               </div>
             ) : (
               <div className="space-y-6">
-                {/* 1. Publicaciones */}
                 {showPublications && filteredPublications.length > 0 && (
                   <div className="space-y-4">
                     {feedTab === "all" && (
@@ -1031,13 +1055,14 @@ export default function FeedPage({
                           onRequestItem={onRequestItem}
                           onInspectRequests={onInspectRequests}
                           onOpenChat={onOpenChat}
+                          onRequireAuth={onOpenAuthModal}
+                          onActionFeedback={onActionFeedback}
                         />
                       </div>
                     ))}
                   </div>
                 )}
 
-                {/* 2. Eventos comunitarios (con imagen principal y clic a vista individual) */}
                 {showEvents && filteredEvents.length > 0 && (
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
@@ -1123,7 +1148,6 @@ export default function FeedPage({
                   </div>
                 )}
 
-                {/* 3. Artículos del Blog (con imagen principal, etiquetas en terracota y clic a vista individual) */}
                 {showBlogs && filteredBlogs.length > 0 && (
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
@@ -1213,7 +1237,6 @@ export default function FeedPage({
                   </div>
                 )}
 
-                {/* 4. Usuarios / Comunidad */}
                 {showUsers && filteredUsers.length > 0 && (
                   <div className="space-y-3">
                     <h2 className="flex items-center gap-2 text-sm font-extrabold uppercase tracking-wide text-stone-700">

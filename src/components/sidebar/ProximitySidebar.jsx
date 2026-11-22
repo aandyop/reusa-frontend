@@ -17,7 +17,8 @@ const FIXED_UNREGISTERED_COORDS = {
   lng: -70.6123056,
 };
 
-const GREEN_CENTER_COLOR = "#2D6A4F";
+const GREEN_PUBLICATION_COLOR = "#2D6A4F";
+const GREEN_PUBLICATION_HOVER = "#1B4332";
 const TERRACOTTA_COLOR = "#E76F51";
 
 function calculateDistanceKm(lat1, lng1, lat2, lng2) {
@@ -56,7 +57,7 @@ export default function ProximitySidebar({
         }
       : FIXED_UNREGISTERED_COORDS
   );
-  const [selectedPinLabel, setSelectedPinLabel] = useState(null);
+  const [selectedPin, setSelectedPin] = useState(null);
 
   useEffect(() => {
     if (userApproxLocation?.lat && userApproxLocation?.lng) {
@@ -149,14 +150,14 @@ export default function ProximitySidebar({
 
     userMarker.addTo(layersGroup);
 
-    // 2. Círculos rojos de publicaciones cercanas (área aproximada por privacidad)
+    // 2. Círculos verdes de publicaciones cercanas (área aproximada por privacidad)
     nearbyPublications.forEach((pub) => {
       const isHovered = hoveredPublicationId === pub.id;
       const circle = L.circle([Number(pub.lat), Number(pub.lng)], {
         radius: Number(pub.radius_meters) || 320,
-        color: isHovered ? "#991B1B" : "#DC2626",
+        color: isHovered ? GREEN_PUBLICATION_HOVER : GREEN_PUBLICATION_COLOR,
         weight: isHovered ? 3 : 1.8,
-        fillColor: "#EF4444",
+        fillColor: GREEN_PUBLICATION_COLOR,
         fillOpacity: isHovered ? 0.45 : 0.24,
       });
 
@@ -166,30 +167,36 @@ export default function ProximitySidebar({
       );
 
       circle.on("click", () => {
-        setSelectedPinLabel(`${pub.title} · ${pub.zone_name}`);
+        setSelectedPin({
+          type: "publication",
+          label: `${pub.title} · ${pub.zone_name}`,
+        });
         onSelectPublication?.(pub);
       });
 
       circle.addTo(layersGroup);
     });
 
-    // 3. Marcadores de Centros de Donación en el mapa con el color verde original (#2D6A4F)
+    // 3. Marcadores de Centros de Acopio / Donación en rojo terracota (#E76F51)
     donationCenters.forEach((center) => {
       if (!center.lat || !center.lng) return;
 
       const centerMarker = L.circleMarker(
         [Number(center.lat), Number(center.lng)],
         {
-          radius: 7,
+          radius: 7.5,
           color: "#FFFFFF",
           weight: 2,
-          fillColor: GREEN_CENTER_COLOR,
+          fillColor: TERRACOTTA_COLOR,
           fillOpacity: 1,
         }
-      ).bindTooltip(`Centro de donación: ${center.name}`, { direction: "top" });
+      ).bindTooltip(`Centro de acopio: ${center.name}`, { direction: "top" });
 
       centerMarker.on("click", () => {
-        setSelectedPinLabel(`Centro de donación: ${center.name}`);
+        setSelectedPin({
+          type: "center",
+          label: `Centro de acopio: ${center.name}`,
+        });
       });
 
       centerMarker.addTo(layersGroup);
@@ -207,7 +214,7 @@ export default function ProximitySidebar({
     mapInstanceRef.current.setView([userCoords.lat, userCoords.lng], 14, {
       animate: true,
     });
-    setSelectedPinLabel(null);
+    setSelectedPin(null);
   };
 
   const handleFocusCenter = (center) => {
@@ -215,7 +222,10 @@ export default function ProximitySidebar({
     mapInstanceRef.current.setView([Number(center.lat), Number(center.lng)], 15, {
       animate: true,
     });
-    setSelectedPinLabel(`Centro de donación: ${center.name}`);
+    setSelectedPin({
+      type: "center",
+      label: `Centro de acopio: ${center.name}`,
+    });
   };
 
   return (
@@ -223,13 +233,13 @@ export default function ProximitySidebar({
       aria-label="Mapa de cercanía y centros de donación"
       className="space-y-4 lg:sticky lg:top-20"
     >
-      {/* Tarjeta 1: Mapa de Proximidad con Círculos Rojos, Centros Verdes y Botón Agrandar */}
+      {/* Tarjeta 1: Mapa de Proximidad con Publicaciones Verdes y Centros en Rojo Terracota */}
       <div className="overflow-hidden rounded-2xl border border-stone-200/90 bg-white shadow-xs">
         <div className="flex items-center justify-between border-b border-stone-100 px-4 py-3">
           <div className="flex items-center gap-2">
             <Navigation
               className="h-4 w-4"
-              style={{ color: GREEN_CENTER_COLOR }}
+              style={{ color: GREEN_PUBLICATION_COLOR }}
             />
             <div>
               <h2 className="text-sm font-bold text-stone-900">
@@ -307,7 +317,7 @@ export default function ProximitySidebar({
           <div ref={mapContainerRef} className="z-0 h-full w-full" />
         </div>
 
-        {/* Leyenda con Centros de Donación en Verde (#2D6A4F) */}
+        {/* Leyenda: Publicaciones en Verde (#2D6A4F) y Centros de Acopio en Rojo Terracota (#E76F51) */}
         <div className="border-t border-stone-100 px-4 py-2.5 text-[11px] text-stone-600">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
             <span className="inline-flex items-center gap-1.5">
@@ -315,21 +325,41 @@ export default function ProximitySidebar({
               Ubicación base (9°18&apos;13.6&quot;N 70°36&apos;44.3&quot;W)
             </span>
             <span className="inline-flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-red-500/70 ring-1 ring-red-600" />
+              <span
+                className="h-2.5 w-2.5 rounded-full ring-1"
+                style={{
+                  backgroundColor: "rgb(45, 106, 79)",
+                  borderColor: GREEN_PUBLICATION_COLOR,
+                }}
+              />
               Publicación cercana (área aprox.)
             </span>
             <span className="inline-flex items-center gap-1.5">
               <span
                 className="h-2.5 w-2.5 rounded-full"
-                style={{ backgroundColor: GREEN_CENTER_COLOR }}
+                style={{ backgroundColor: TERRACOTTA_COLOR }}
               />
-              Centro de donación
+              Centro de acopio
             </span>
           </div>
 
-          {selectedPinLabel && (
-            <p className="mt-1.5 truncate rounded-lg bg-emerald-50 px-2.5 py-1 font-semibold text-[#2D6A4F]">
-              Seleccionado: {selectedPinLabel}
+          {selectedPin && (
+            <p
+              style={
+                selectedPin.type === "center"
+                  ? {
+                      backgroundColor: "rgba(231, 111, 81, 0.14)",
+                      color: TERRACOTTA_COLOR,
+                    }
+                  : undefined
+              }
+              className={`mt-1.5 truncate rounded-lg px-2.5 py-1 font-semibold ${
+                selectedPin.type === "publication"
+                  ? "bg-emerald-50 text-[#2D6A4F]"
+                  : ""
+              }`}
+            >
+              Seleccionado: {selectedPin.label}
             </p>
           )}
         </div>

@@ -13,6 +13,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { publicationsService } from "../services/publicationsService";
 import PublicationCard from "../components/feed/PublicationCard";
+import SavedPublicationsSection from "../components/profile/SavedPublicationsSection";
 import { REPOINTS_COLOR } from "../utils/constants";
 
 const FALLBACK_DELIVERED_HISTORY = [
@@ -39,7 +40,22 @@ const FALLBACK_DELIVERED_HISTORY = [
   },
 ];
 
-export default function ProfilePage({ onOpenAuthModal }) {
+function readCachedPublications() {
+  try {
+    const raw = localStorage.getItem("reusa_publications_cache");
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export default function ProfilePage({
+  onOpenAuthModal,
+  onSelectPublication,
+  onActionFeedback,
+}) {
   const {
     user,
     token,
@@ -50,10 +66,12 @@ export default function ProfilePage({ onOpenAuthModal }) {
     loading: authLoading,
   } = useAuth();
 
+  const [allKnownPublications, setAllKnownPublications] = useState(() =>
+    readCachedPublications()
+  );
   const [historyItems, setHistoryItems] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
-  // Estado del formulario de verificación de identidad privada
   const [fullName, setFullName] = useState("");
   const [docNumber, setDocNumber] = useState("");
   const [docFile, setDocFile] = useState(null);
@@ -75,7 +93,10 @@ export default function ProfilePage({ onOpenAuthModal }) {
     Math.round((donationsCount / donationsTarget) * 100)
   );
 
-  const loadDeliveredHistory = useCallback(async () => {
+  const loadPublicationsAndHistory = useCallback(async () => {
+    const cachedPubs = readCachedPublications();
+    setAllKnownPublications(cachedPubs);
+
     if (!user?.id) {
       setHistoryItems(FALLBACK_DELIVERED_HISTORY);
       return;
@@ -85,6 +106,13 @@ export default function ProfilePage({ onOpenAuthModal }) {
     try {
       const res = await publicationsService.getUserPublications(user.id, token);
       const allUserPubs = Array.isArray(res) ? res : res?.publications || [];
+      if (allUserPubs.length > 0) {
+        setAllKnownPublications((prev) => {
+          const map = new Map(prev.map((p) => [p.id, p]));
+          allUserPubs.forEach((p) => map.set(p.id, p));
+          return Array.from(map.values());
+        });
+      }
       const deliveredOnly = allUserPubs.filter(
         (item) => item.status === "ENTREGADO"
       );
@@ -99,8 +127,8 @@ export default function ProfilePage({ onOpenAuthModal }) {
   }, [user?.id, token]);
 
   useEffect(() => {
-    loadDeliveredHistory();
-  }, [loadDeliveredHistory]);
+    loadPublicationsAndHistory();
+  }, [loadPublicationsAndHistory]);
 
   const reLeaderChecklist = useMemo(
     () => [
@@ -216,7 +244,6 @@ export default function ProfilePage({ onOpenAuthModal }) {
             </div>
           </div>
 
-          {/* Tarjeta destacada de RePoints (#FFC639) */}
           <div
             className="flex items-center gap-3 rounded-2xl border px-5 py-3.5 shadow-2xs"
             style={{
@@ -241,7 +268,6 @@ export default function ProfilePage({ onOpenAuthModal }) {
           </div>
         </div>
 
-        {/* Métricas rápidas */}
         <div className="mt-6 grid grid-cols-1 gap-3 border-t border-stone-100 pt-5 sm:grid-cols-3">
           <div className="rounded-2xl bg-[#FAF9F6] p-4 ring-1 ring-stone-200/80">
             <div className="flex items-center justify-between">
@@ -288,7 +314,6 @@ export default function ProfilePage({ onOpenAuthModal }) {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
         {/* Columna Izquierda: Progreso hacia ReLeader + Verificación de Identidad */}
         <div className="space-y-6 lg:col-span-5">
-          {/* Progreso automático hacia ReLeader */}
           <section className="rounded-3xl border border-stone-200/90 bg-white p-5 shadow-xs">
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-base font-extrabold text-stone-900">
@@ -335,7 +360,6 @@ export default function ProfilePage({ onOpenAuthModal }) {
             </ul>
           </section>
 
-          {/* Verificación de Identidad Privada */}
           <section className="rounded-3xl border border-stone-200/90 bg-white p-5 shadow-xs">
             <div className="flex items-center gap-2">
               <FileCheck2 className="h-5 w-5 text-[#2D6A4F]" />
@@ -437,8 +461,14 @@ export default function ProfilePage({ onOpenAuthModal }) {
           </section>
         </div>
 
-        {/* Columna Derecha: Historial de publicaciones ENTREGADO en modo lectura */}
-        <div className="space-y-4 lg:col-span-7">
+        {/* Columna Derecha: Publicaciones guardadas activas + Historial ENTREGADO */}
+        <div className="space-y-6 lg:col-span-7">
+          <SavedPublicationsSection
+            publications={allKnownPublications}
+            onSelectPublication={onSelectPublication}
+            onFeedback={onActionFeedback}
+          />
+
           <div className="rounded-3xl border border-stone-200/90 bg-white p-5 shadow-xs">
             <h2 className="text-base font-extrabold text-stone-900">
               Historial de entregas (ENTREGADO)

@@ -2,8 +2,10 @@ import { useState } from "react";
 import { X, ShieldCheck, Sparkles, KeyRound } from "lucide-react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ChatProvider, useChat } from "./context/ChatContext";
+import { SavedAndReportsProvider } from "./context/SavedAndReportsContext";
 import Navbar from "./components/common/Navbar";
 import ChatPanel from "./components/chat/ChatPanel";
+import ReportPublicationModal from "./components/feed/ReportPublicationModal";
 import FeedPage from "./pages/FeedPage";
 import EventsPage from "./pages/EventsPage";
 import BlogPage from "./pages/BlogPage";
@@ -228,6 +230,7 @@ function ReUsaShell() {
   const { openChat, closeChat, totalUnreadCount } = useChat();
 
   const [activeTab, setActiveTab] = useState("feed");
+  const [initialFeedPublicationId, setInitialFeedPublicationId] = useState(null);
   const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isChatDrawerOpen, setIsChatDrawerOpen] = useState(false);
@@ -344,7 +347,12 @@ function ReUsaShell() {
     <div className="min-h-screen bg-[#FAF9F6] text-stone-900">
       <Navbar
         activeTab={effectiveTab}
-        onSelectTab={setActiveTab}
+        onSelectTab={(tab) => {
+          if (tab !== "feed") {
+            setInitialFeedPublicationId(null);
+          }
+          setActiveTab(tab);
+        }}
         onOpenPublishModal={() => setIsPublishModalOpen(true)}
         onOpenChatDrawer={() => handleOpenChatForPublication(null)}
         onOpenAuthModal={() => setIsAuthModalOpen(true)}
@@ -370,11 +378,16 @@ function ReUsaShell() {
       {effectiveTab === "feed" && (
         <FeedPage
           externalNewPublication={newPublication}
+          initialSelectedPublicationId={initialFeedPublicationId}
+          onClearInitialSelectedPublication={() =>
+            setInitialFeedPublicationId(null)
+          }
           unreadChatCount={isAuthenticated ? totalUnreadCount : 0}
           onRequestItem={(pub) => setRequestTargetPub(pub)}
           onInspectRequests={(pub) => setReviewTargetPub(pub)}
           onOpenChat={(pub) => handleOpenChatForPublication(pub?.id || null)}
           onOpenAuthModal={() => setIsAuthModalOpen(true)}
+          onActionFeedback={showToast}
         />
       )}
 
@@ -392,7 +405,14 @@ function ReUsaShell() {
       )}
 
       {effectiveTab === "profile" && (
-        <ProfilePage onOpenAuthModal={() => setIsAuthModalOpen(true)} />
+        <ProfilePage
+          onOpenAuthModal={() => setIsAuthModalOpen(true)}
+          onSelectPublication={(pub) => {
+            setInitialFeedPublicationId(pub?.id || null);
+            setActiveTab("feed");
+          }}
+          onActionFeedback={showToast}
+        />
       )}
 
       <PublishModal
@@ -435,6 +455,12 @@ function ReUsaShell() {
 
       <ChatPanel onOpenFullChatPage={handleOpenFullChatPage} />
 
+      <ReportPublicationModal
+        onReported={(rep) =>
+          showToast(`Reporte enviado para "${rep.publication_title}".`)
+        }
+      />
+
       <QuickAuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
@@ -448,7 +474,9 @@ export default function App() {
   return (
     <AuthProvider>
       <ChatProvider>
-        <ReUsaShell />
+        <SavedAndReportsProvider>
+          <ReUsaShell />
+        </SavedAndReportsProvider>
       </ChatProvider>
     </AuthProvider>
   );
