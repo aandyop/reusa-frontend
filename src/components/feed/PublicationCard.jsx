@@ -9,10 +9,12 @@ import {
   Package,
   Repeat,
   Gift,
+  Images,
 } from "lucide-react";
 import { REPOINTS_COLOR } from "../../utils/constants";
 
 const PRIMARY_GREEN = "#2d6a4f";
+const SECONDARY_TERRACOTTA = "#E76F51";
 
 const STATUS_BADGE_MAP = {
   DISPONIBLE: {
@@ -50,6 +52,7 @@ export default function PublicationCard({
     approved_applicant_id = null,
     title,
     description,
+    primary_image = null,
     images = [],
     category,
     item_condition,
@@ -61,6 +64,7 @@ export default function PublicationCard({
     zone_name = "Valera, Trujillo",
     re_points_reward = 25,
     pending_requests_count = 0,
+    unread_messages_count = 0,
     created_at,
   } = publication;
 
@@ -72,7 +76,21 @@ export default function PublicationCard({
 
   const statusMeta = STATUS_BADGE_MAP[status] || STATUS_BADGE_MAP.DISPONIBLE;
   const isTrade = modality === "Trueque";
-  const hasImage = Array.isArray(images) && images.length > 0 && images[0];
+
+  // Siempre priorizar la imagen principal elegida (primary_image o images[0])
+  const allImages = (() => {
+    const list = [];
+    if (primary_image) list.push(primary_image);
+    if (Array.isArray(images)) {
+      images.forEach((img) => {
+        if (img && !list.includes(img)) list.push(img);
+      });
+    }
+    return list;
+  })();
+
+  const coverImage = allImages[0] || null;
+  const extraImagesCount = allImages.length > 1 ? allImages.length - 1 : 0;
 
   const formattedDate = created_at
     ? new Date(created_at).toLocaleDateString("es-VE", {
@@ -86,11 +104,7 @@ export default function PublicationCard({
       onMouseEnter={() => onHoverChange?.(id)}
       onMouseLeave={() => onHoverChange?.(null)}
       onClick={() => onSelectPublication?.(publication)}
-      style={
-        isHighlighted
-          ? { borderColor: PRIMARY_GREEN }
-          : undefined
-      }
+      style={isHighlighted ? { borderColor: PRIMARY_GREEN } : undefined}
       className={`cursor-pointer rounded-2xl border bg-white p-5 transition ${
         isHighlighted
           ? "bg-emerald-50/20 shadow-md ring-1 ring-[#2d6a4f]/30"
@@ -164,15 +178,21 @@ export default function PublicationCard({
         </div>
       </div>
 
-      {/* Cuerpo principal: Título, descripción e imagen opcional */}
+      {/* Cuerpo principal: Portada (imagen principal) + Título + Descripción */}
       <div className="mt-3.5 flex flex-col gap-4 sm:flex-row">
-        {hasImage && (
-          <div className="h-32 w-full shrink-0 overflow-hidden rounded-xl border border-stone-200 bg-stone-100 sm:w-40">
+        {coverImage && (
+          <div className="relative h-36 w-full shrink-0 overflow-hidden rounded-xl border border-stone-200 bg-stone-100 sm:w-44">
             <img
-              src={images[0]}
+              src={coverImage}
               alt={title}
               className="h-full w-full object-cover"
             />
+            {extraImagesCount > 0 && (
+              <span className="absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-lg bg-stone-950/75 px-2 py-0.5 text-[10px] font-bold text-white backdrop-blur-xs">
+                <Images className="h-3 w-3" />
+                <span>+{extraImagesCount}</span>
+              </span>
+            )}
           </div>
         )}
 
@@ -214,7 +234,7 @@ export default function PublicationCard({
             {title}
           </h3>
 
-          <p className="mt-1 text-xs leading-relaxed text-stone-600">
+          <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-stone-600">
             {description}
           </p>
 
@@ -225,12 +245,18 @@ export default function PublicationCard({
             </div>
           )}
 
+          {/* Etiquetas en color secundario terracota (#E76F51) */}
           {Array.isArray(tags) && tags.length > 0 && (
             <div className="mt-2.5 flex flex-wrap gap-1.5">
               {tags.map((tag) => (
                 <span
                   key={tag}
-                  className="inline-flex items-center gap-1 rounded-full border border-[#2d6a4f]/20 bg-emerald-50/50 px-2.5 py-0.5 text-[11px] font-semibold text-[#2d6a4f]"
+                  style={{
+                    backgroundColor: "rgba(231, 111, 81, 0.14)",
+                    color: SECONDARY_TERRACOTTA,
+                    borderColor: "rgba(231, 111, 81, 0.35)",
+                  }}
+                  className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-bold"
                 >
                   <Tag className="h-2.5 w-2.5" />
                   {tag}
@@ -246,13 +272,13 @@ export default function PublicationCard({
         onClick={(e) => e.stopPropagation()}
         className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-stone-100 pt-3.5"
       >
-        <div className="text-[11px] font-medium text-stone-500">
-          {status === "DISPONIBLE" &&
-            "Área aproximada en el mapa · Coordinación segura"}
-          {status === "RESERVADO" &&
-            "Reserva activa · Chat habilitado entre partes"}
-          {status === "ENTREGADO" && "Ciclo completado en la comunidad"}
-        </div>
+        <button
+          type="button"
+          onClick={() => onSelectPublication?.(publication)}
+          className="text-[11px] font-bold text-[#2d6a4f] underline-offset-2 hover:underline"
+        >
+          Ver detalles y mapa →
+        </button>
 
         <div className="flex flex-wrap items-center gap-2">
           {isOwner && (
@@ -263,7 +289,15 @@ export default function PublicationCard({
               className="inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold text-white transition hover:opacity-90"
             >
               <Inbox className="h-3.5 w-3.5" />
-              <span>Solicitudes ({pending_requests_count})</span>
+              <span>Solicitudes</span>
+              {pending_requests_count > 0 && (
+                <span
+                  style={{ backgroundColor: SECONDARY_TERRACOTTA }}
+                  className="inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-extrabold text-white"
+                >
+                  {pending_requests_count}
+                </span>
+              )}
             </button>
           )}
 
@@ -289,6 +323,14 @@ export default function PublicationCard({
             >
               <MessageSquare className="h-3.5 w-3.5" />
               <span>Abrir chat de entrega</span>
+              {unread_messages_count > 0 && (
+                <span
+                  style={{ backgroundColor: SECONDARY_TERRACOTTA }}
+                  className="inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-extrabold text-white"
+                >
+                  {unread_messages_count}
+                </span>
+              )}
             </button>
           )}
         </div>

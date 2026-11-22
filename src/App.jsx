@@ -1,17 +1,19 @@
 import { useState } from "react";
 import { X, ShieldCheck, Sparkles, KeyRound } from "lucide-react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { ChatProvider, useChat } from "./context/ChatContext";
 import Navbar from "./components/common/Navbar";
+import ChatPanel from "./components/chat/ChatPanel";
 import FeedPage from "./pages/FeedPage";
 import EventsPage from "./pages/EventsPage";
 import BlogPage from "./pages/BlogPage";
 import ProfilePage from "./pages/ProfilePage";
+import ChatPage from "./pages/ChatPage";
 import PublishModal from "./components/feed/PublishModal";
 import RequestModal from "./components/chat/RequestModal";
 import ApplicantReviewModal from "./components/chat/ApplicantReviewModal";
 import ChatDrawer from "./components/chat/ChatDrawer";
 
-// Todos los perfiles de prueba ubicados en Valera, Estado Trujillo, Venezuela
 const DEMO_PROFILES = {
   verified: {
     token: "demo-token-verified",
@@ -205,12 +207,13 @@ function QuickAuthModal({ isOpen, onClose }) {
 }
 
 function ReUsaShell() {
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
+  const { openChat, closeChat, totalUnreadCount } = useChat();
 
   const [activeTab, setActiveTab] = useState("feed");
   const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isChatDrawerOpen, setIsChatDrawerOpen] = useState(false);
 
   const [requestTargetPub, setRequestTargetPub] = useState(null);
   const [reviewTargetPub, setReviewTargetPub] = useState(null);
@@ -226,6 +229,25 @@ function ReUsaShell() {
     setTimeout(() => {
       setToastMsg((current) => (current === msg ? "" : current));
     }, 4000);
+  };
+
+  const handleOpenChatForPublication = (pubId = null) => {
+    if (!isAuthenticated) {
+      setIsAuthModalOpen(true);
+      return;
+    }
+    setChatInitialPubId(pubId);
+    openChat();
+  };
+
+  const handleOpenFullChatPage = () => {
+    if (!isAuthenticated) {
+      setIsAuthModalOpen(true);
+      return;
+    }
+    closeChat();
+    setIsChatDrawerOpen(false);
+    setActiveTab("chat");
   };
 
   const handlePublicationCreated = (createdPub) => {
@@ -269,10 +291,11 @@ function ReUsaShell() {
     };
 
     setExtraConversations((prev) => [newConv, ...prev]);
-    setChatInitialPubId(publicationId);
     setReviewTargetPub(null);
-    setIsChatOpen(true);
-    showToast("Reserva aprobada: el artículo pasó a RESERVADO y se abrió el chat.");
+    handleOpenChatForPublication(publicationId);
+    showToast(
+      "Reserva aprobada: el artículo pasó a RESERVADO y se abrió el chat."
+    );
   };
 
   const handleDeliveryConfirmed = (publicationId) => {
@@ -290,16 +313,16 @@ function ReUsaShell() {
     );
   };
 
+  const effectiveTab =
+    !isAuthenticated && activeTab === "chat" ? "feed" : activeTab;
+
   return (
     <div className="min-h-screen bg-[#FAF9F6] text-stone-900">
       <Navbar
-        activeTab={activeTab}
+        activeTab={effectiveTab}
         onSelectTab={setActiveTab}
         onOpenPublishModal={() => setIsPublishModalOpen(true)}
-        onOpenChatDrawer={() => {
-          setChatInitialPubId(null);
-          setIsChatOpen(true);
-        }}
+        onOpenChatDrawer={() => handleOpenChatForPublication(null)}
         onOpenAuthModal={() => setIsAuthModalOpen(true)}
       />
 
@@ -311,26 +334,31 @@ function ReUsaShell() {
         </div>
       )}
 
-      {activeTab === "feed" && (
+      {effectiveTab === "feed" && (
         <FeedPage
           externalNewPublication={newPublication}
+          unreadChatCount={isAuthenticated ? totalUnreadCount : 0}
           onRequestItem={(pub) => setRequestTargetPub(pub)}
           onInspectRequests={(pub) => setReviewTargetPub(pub)}
-          onOpenChat={(pub) => {
-            setChatInitialPubId(pub.id);
-            setIsChatOpen(true);
-          }}
+          onOpenChat={(pub) => handleOpenChatForPublication(pub?.id || null)}
           onOpenAuthModal={() => setIsAuthModalOpen(true)}
         />
       )}
 
-      {activeTab === "events" && (
+      {effectiveTab === "events" && (
         <EventsPage onOpenAuthModal={() => setIsAuthModalOpen(true)} />
       )}
 
-      {activeTab === "blog" && <BlogPage />}
+      {effectiveTab === "blog" && <BlogPage />}
 
-      {activeTab === "profile" && (
+      {effectiveTab === "chat" && (
+        <ChatPage
+          onOpenProfile={() => setActiveTab("profile")}
+          onOpenAuthModal={() => setIsAuthModalOpen(true)}
+        />
+      )}
+
+      {effectiveTab === "profile" && (
         <ProfilePage onOpenAuthModal={() => setIsAuthModalOpen(true)} />
       )}
 
@@ -355,20 +383,24 @@ function ReUsaShell() {
         onApprovedRequest={handleApprovedRequest}
       />
 
-      <ChatDrawer
-        isOpen={isChatOpen}
-        onClose={() => setIsChatOpen(false)}
-        initialPublicationId={chatInitialPubId}
-        extraConversations={extraConversations}
-        onDeliveryConfirmed={(pubId) => {
-          handleDeliveryConfirmed(pubId);
-          if (newPublication?.id === pubId) {
-            setNewPublication(null);
-          }
-          if (removedPubIds.includes(pubId)) return;
-        }}
-        onReservationCancelled={handleReservationCancelled}
-      />
+      {isAuthenticated && (
+        <ChatDrawer
+          isOpen={isChatDrawerOpen}
+          onClose={() => setIsChatDrawerOpen(false)}
+          initialPublicationId={chatInitialPubId}
+          extraConversations={extraConversations}
+          onDeliveryConfirmed={(pubId) => {
+            handleDeliveryConfirmed(pubId);
+            if (newPublication?.id === pubId) {
+              setNewPublication(null);
+            }
+            if (removedPubIds.includes(pubId)) return;
+          }}
+          onReservationCancelled={handleReservationCancelled}
+        />
+      )}
+
+      <ChatPanel onOpenFullChatPage={handleOpenFullChatPage} />
 
       <QuickAuthModal
         isOpen={isAuthModalOpen}
@@ -381,7 +413,9 @@ function ReUsaShell() {
 export default function App() {
   return (
     <AuthProvider>
-      <ReUsaShell />
+      <ChatProvider>
+        <ReUsaShell />
+      </ChatProvider>
     </AuthProvider>
   );
 }
