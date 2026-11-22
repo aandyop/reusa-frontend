@@ -9,6 +9,7 @@ import EventsPage from "./pages/EventsPage";
 import BlogPage from "./pages/BlogPage";
 import ProfilePage from "./pages/ProfilePage";
 import ChatPage from "./pages/ChatPage";
+import RegisterPage from "./pages/RegisterPage";
 import PublishModal from "./components/feed/PublishModal";
 import RequestModal from "./components/chat/RequestModal";
 import ApplicantReviewModal from "./components/chat/ApplicantReviewModal";
@@ -68,7 +69,7 @@ const DEMO_PROFILES = {
   },
 };
 
-function QuickAuthModal({ isOpen, onClose }) {
+function QuickAuthModal({ isOpen, onClose, onGoToRegister }) {
   const { login, updateUserState } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -87,7 +88,7 @@ function QuickAuthModal({ isOpen, onClose }) {
     } catch (err) {
       setErrorMsg(
         err?.message ||
-          "No se pudo conectar con /api/auth/login. Usa un acceso rápido de prueba en Valera mientras levantas el backend."
+          "No se pudo conectar con /auth/login (Failed to fetch). Usa un acceso rápido de prueba en Valera o regístrate mientras levantas el backend."
       );
     } finally {
       setSubmitting(false);
@@ -200,6 +201,22 @@ function QuickAuthModal({ isOpen, onClose }) {
               {submitting ? "Ingresando..." : "Iniciar sesión"}
             </button>
           </form>
+
+          {onGoToRegister && (
+            <div className="border-t border-stone-200 pt-3 text-center text-xs text-stone-600">
+              <span>¿Aún no tienes cuenta? </span>
+              <button
+                type="button"
+                onClick={() => {
+                  onClose?.();
+                  onGoToRegister();
+                }}
+                className="font-extrabold text-[#2D6A4F] hover:underline"
+              >
+                Crear cuenta aquí
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -248,6 +265,13 @@ function ReUsaShell() {
     closeChat();
     setIsChatDrawerOpen(false);
     setActiveTab("chat");
+  };
+
+  const handleRegisteredUser = (registeredUser) => {
+    setActiveTab("feed");
+    showToast(
+      `¡Bienvenido a ReUsa, @${registeredUser?.nickname || "vecino"}! Tu cuenta está lista.`
+    );
   };
 
   const handlePublicationCreated = (createdPub) => {
@@ -324,6 +348,7 @@ function ReUsaShell() {
         onOpenPublishModal={() => setIsPublishModalOpen(true)}
         onOpenChatDrawer={() => handleOpenChatForPublication(null)}
         onOpenAuthModal={() => setIsAuthModalOpen(true)}
+        onOpenRegisterPage={() => setActiveTab("register")}
       />
 
       {toastMsg && (
@@ -332,6 +357,14 @@ function ReUsaShell() {
             {toastMsg}
           </div>
         </div>
+      )}
+
+      {effectiveTab === "register" && (
+        <RegisterPage
+          onRegistered={handleRegisteredUser}
+          onGoToLogin={() => setIsAuthModalOpen(true)}
+          onBackToFeed={() => setActiveTab("feed")}
+        />
       )}
 
       {effectiveTab === "feed" && (
@@ -405,6 +438,7 @@ function ReUsaShell() {
       <QuickAuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
+        onGoToRegister={() => setActiveTab("register")}
       />
     </div>
   );

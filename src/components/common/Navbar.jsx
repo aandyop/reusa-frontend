@@ -1,4 +1,12 @@
-import { Leaf, Plus, LogIn, LogOut, Award, ShieldCheck } from "lucide-react";
+import {
+  Leaf,
+  Plus,
+  LogIn,
+  LogOut,
+  Award,
+  ShieldCheck,
+  UserPlus,
+} from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import ChatBadgeButton from "../chat/ChatBadgeButton";
 import { REPOINTS_COLOR } from "../../utils/constants";
@@ -11,6 +19,7 @@ export default function Navbar({
   onOpenPublishModal,
   onOpenChatDrawer,
   onOpenAuthModal,
+  onOpenRegisterPage,
 }) {
   const { user, isAuthenticated, logout } = useAuth();
   const userPoints = user?.re_points ?? user?.rePoints ?? 0;
@@ -18,7 +27,6 @@ export default function Navbar({
   return (
     <header className="sticky top-0 z-40 border-b border-stone-200/90 bg-white/95 backdrop-blur-xs">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3">
-        {/* Marca */}
         <button
           type="button"
           onClick={() => onSelectTab?.("feed")}
@@ -40,7 +48,6 @@ export default function Navbar({
           </div>
         </button>
 
-        {/* Navegación principal (sin pestaña de Perfil aparte; el acceso al perfil es el @nickname) */}
         <nav
           aria-label="Navegación principal"
           className="flex flex-wrap items-center gap-1.5"
@@ -73,7 +80,6 @@ export default function Navbar({
           })}
         </nav>
 
-        {/* Acciones: Chat (solo ícono, visible si inició sesión) + Publicar + @nickname (link al perfil) + RePoints */}
         <div className="flex flex-wrap items-center gap-2">
           {isAuthenticated && (
             <ChatBadgeButton onClick={() => onOpenChatDrawer?.()} />
@@ -122,16 +128,30 @@ export default function Navbar({
               </button>
             </div>
           ) : (
-            onOpenAuthModal && (
-              <button
-                type="button"
-                onClick={onOpenAuthModal}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-stone-200 bg-[#FAF9F6] px-3 py-2 text-xs font-bold text-stone-700 transition hover:border-[#2d6a4f] hover:text-[#2d6a4f]"
-              >
-                <LogIn className="h-3.5 w-3.5" />
-                <span>Ingresar</span>
-              </button>
-            )
+            <div className="flex items-center gap-2">
+              {onOpenAuthModal && (
+                <button
+                  type="button"
+                  onClick={onOpenAuthModal}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-stone-200 bg-[#FAF9F6] px-3 py-2 text-xs font-bold text-stone-700 transition hover:border-[#2d6a4f] hover:text-[#2d6a4f]"
+                >
+                  <LogIn className="h-3.5 w-3.5" />
+                  <span>Ingresar</span>
+                </button>
+              )}
+
+              {onOpenRegisterPage && (
+                <button
+                  type="button"
+                  style={{ backgroundColor: PRIMARY_GREEN }}
+                  onClick={onOpenRegisterPage}
+                  className="inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-extrabold text-white transition hover:opacity-90"
+                >
+                  <UserPlus className="h-4 w-4" />
+                  <span>Registrarse</span>
+                </button>
+              )}
+            </div>
           )}
         </div>
       </div>
