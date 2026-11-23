@@ -107,7 +107,14 @@ export default function RegisterPage({
       localStorage.setItem("reusa_user", JSON.stringify(registeredUser));
       updateUserState?.(registeredUser);
       onRegistered?.(registeredUser);
-    } catch {
+    } catch (err) {
+      // Si el backend respondió con error (ej. 409 correo/nickname duplicado o 400), detener aquí
+      if (err?.status) {
+        setErrorMsg(err.message || "No se pudo completar el registro.");
+        return;
+      }
+
+      // Solo entra al modo local si no hubo conexión con el servidor
       const localUser = {
         id: `usr-${Date.now()}`,
         nickname: cleanNickname,
