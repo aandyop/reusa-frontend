@@ -333,6 +333,29 @@ function extractList(res, nestedKey) {
   return [];
 }
 
+function normalizePublication(p) {
+  return {
+    ...p,
+    author_id: p.author_id ?? p.user_id,
+    author_nickname:
+      p.author_nickname || p.owner_nickname || p.owner_name || "vecino",
+    author_is_verified: p.author_is_verified ?? p.owner_is_verified ?? true,
+    author_re_points: p.author_re_points ?? p.owner_re_points ?? 0,
+    author_role: p.author_role || (p.owner_is_releader ? "releader" : "user"),
+    zone_name:
+      p.zone_name || p.approx_zone_name || p.location || "Valera, Trujillo",
+    modality: p.modality || "Donación",
+    images: Array.isArray(p.images)
+      ? p.images
+      : p.image_url
+      ? [p.image_url]
+      : [],
+    lat: p.lat ?? 9.3188,
+    lng: p.lng ?? -70.6042,
+    radius_meters: p.radius_meters ?? 350,
+  };
+}
+
 export default function FeedPage({
   externalNewPublication = null,
   initialSelectedPublicationId = null,
@@ -379,137 +402,159 @@ export default function FeedPage({
   const [loading, setLoading] = useState(true);
   const [usingFallback, setUsingFallback] = useState(false);
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
+  const loadData = useCallback(
+    async (silent = false) => {
+      if (silent !== true) setLoading(true);
 
-    const localPubs = readLocalArray(
-      STORAGE_KEYS.publications,
-      FALLBACK_PUBLICATIONS
-    );
-    const localCenters = readLocalArray(
-      STORAGE_KEYS.centers,
-      FALLBACK_CENTERS
-    );
-    const localEvents = readLocalArray(STORAGE_KEYS.events, FALLBACK_EVENTS);
-    const localBlog = readLocalArray(STORAGE_KEYS.blog, FALLBACK_BLOGS);
-    const localUsers = readLocalArray(STORAGE_KEYS.users, FALLBACK_USERS);
+      const localPubs = readLocalArray(
+        STORAGE_KEYS.publications,
+        FALLBACK_PUBLICATIONS
+      );
+      const localCenters = readLocalArray(
+        STORAGE_KEYS.centers,
+        FALLBACK_CENTERS
+      );
+      const localEvents = readLocalArray(STORAGE_KEYS.events, FALLBACK_EVENTS);
+      const localBlog = readLocalArray(STORAGE_KEYS.blog, FALLBACK_BLOGS);
+      const localUsers = readLocalArray(STORAGE_KEYS.users, FALLBACK_USERS);
 
-    const [pubsSettled, centersSettled, eventsSettled, blogSettled] =
-      await Promise.allSettled([
-        publicationsService.getFeed({}, token),
-        donationCentersService.getAll(token),
-        eventsService.getAll(token),
-        blogService.getAll(token),
-      ]);
+      const [pubsSettled, centersSettled, eventsSettled, blogSettled] =
+        await Promise.allSettled([
+          publicationsService.getFeed({}, token),
+          donationCentersService.getAll(token),
+          eventsService.getAll(token),
+          blogService.getAll(token),
+        ]);
 
-    let fallbackTriggered = false;
+      let fallbackTriggered = false;
 
-    const apiPubs =
-      pubsSettled.status === "fulfilled"
-        ? extractList(pubsSettled.value, "publications")
-        : [];
-    if (pubsSettled.status === "rejected" || apiPubs.length === 0) {
-      fallbackTriggered = true;
-    }
-    const finalPubs = apiPubs.length > 0 ? apiPubs : localPubs;
-    setPublications(finalPubs);
-    writeLocalArray(STORAGE_KEYS.publications, finalPubs);
-
-    const apiCenters =
-      centersSettled.status === "fulfilled"
-        ? extractList(centersSettled.value, "centers")
-        : [];
-    if (centersSettled.status === "rejected" || apiCenters.length === 0) {
-      fallbackTriggered = true;
-    }
-    const finalCenters = apiCenters.length > 0 ? apiCenters : localCenters;
-    setDonationCenters(finalCenters);
-    writeLocalArray(STORAGE_KEYS.centers, finalCenters);
-
-    const apiEvents =
-      eventsSettled.status === "fulfilled"
-        ? extractList(eventsSettled.value, "events")
-        : [];
-    if (eventsSettled.status === "rejected" || apiEvents.length === 0) {
-      fallbackTriggered = true;
-    }
-    const finalEvents = apiEvents.length > 0 ? apiEvents : localEvents;
-    setEvents(finalEvents);
-    writeLocalArray(STORAGE_KEYS.events, finalEvents);
-
-    const apiBlog =
-      blogSettled.status === "fulfilled"
-        ? extractList(blogSettled.value, "posts")
-        : [];
-    if (blogSettled.status === "rejected" || apiBlog.length === 0) {
-      fallbackTriggered = true;
-    }
-    const finalBlog = apiBlog.length > 0 ? apiBlog : localBlog;
-    setBlogPosts(finalBlog);
-    writeLocalArray(STORAGE_KEYS.blog, finalBlog);
-
-    const userMap = new Map();
-    [...localUsers, ...FALLBACK_USERS].forEach((u) => {
-      const key = u.nickname || u.id;
-      if (key) {
-        userMap.set(key, {
-          id: u.id || key,
-          nickname: u.nickname || key,
-          role: u.role || "user",
-          is_verified: u.is_verified !== false,
-          re_points: u.re_points ?? u.rePoints ?? 50,
-          zone_name: u.zone_name || u.approx_zone_name || "Valera, Trujillo",
-        });
+      const apiPubs =
+        pubsSettled.status === "fulfilled"
+          ? extractList(pubsSettled.value, "publications").map(
+              normalizePublication
+            )
+          : [];
+      if (pubsSettled.status === "rejected" || apiPubs.length === 0) {
+        fallbackTriggered = true;
       }
-    });
+      const finalPubs = apiPubs.length > 0 ? apiPubs : localPubs;
+      setPublications(finalPubs);
+      writeLocalArray(STORAGE_KEYS.publications, finalPubs);
 
-    finalPubs.forEach((p) => {
-      const nick = p.author_nickname;
-      if (nick && !userMap.has(nick)) {
-        userMap.set(nick, {
-          id: p.author_id || nick,
-          nickname: nick,
-          role: p.author_role || "user",
-          is_verified: p.author_is_verified !== false,
-          re_points: p.author_re_points ?? 100,
-          zone_name: p.zone_name || "Valera, Trujillo",
-        });
+      const apiCenters =
+        centersSettled.status === "fulfilled"
+          ? extractList(centersSettled.value, "centers")
+          : [];
+      if (centersSettled.status === "rejected" || apiCenters.length === 0) {
+        fallbackTriggered = true;
       }
-    });
+      const finalCenters = apiCenters.length > 0 ? apiCenters : localCenters;
+      setDonationCenters(finalCenters);
+      writeLocalArray(STORAGE_KEYS.centers, finalCenters);
 
-    if (user?.nickname) {
-      userMap.set(user.nickname, {
-        id: user.id || user.nickname,
-        nickname: user.nickname,
-        role: user.role || "user",
-        is_verified: Boolean(user.is_verified),
-        re_points: user.re_points ?? user.rePoints ?? 0,
-        zone_name: user.approx_zone_name || user.zone_name || "Valera, Trujillo",
+      const apiEvents =
+        eventsSettled.status === "fulfilled"
+          ? extractList(eventsSettled.value, "events")
+          : [];
+      if (eventsSettled.status === "rejected" || apiEvents.length === 0) {
+        fallbackTriggered = true;
+      }
+      const finalEvents = apiEvents.length > 0 ? apiEvents : localEvents;
+      setEvents(finalEvents);
+      writeLocalArray(STORAGE_KEYS.events, finalEvents);
+
+      const apiBlog =
+        blogSettled.status === "fulfilled"
+          ? extractList(blogSettled.value, "posts")
+          : [];
+      if (blogSettled.status === "rejected" || apiBlog.length === 0) {
+        fallbackTriggered = true;
+      }
+      const finalBlog = apiBlog.length > 0 ? apiBlog : localBlog;
+      setBlogPosts(finalBlog);
+      writeLocalArray(STORAGE_KEYS.blog, finalBlog);
+
+      const userMap = new Map();
+      [...localUsers, ...FALLBACK_USERS].forEach((u) => {
+        const key = u.nickname || u.id;
+        if (key) {
+          userMap.set(key, {
+            id: u.id || key,
+            nickname: u.nickname || key,
+            role: u.role || "user",
+            is_verified: u.is_verified !== false,
+            re_points: u.re_points ?? u.rePoints ?? 50,
+            zone_name: u.zone_name || u.approx_zone_name || "Valera, Trujillo",
+          });
+        }
       });
-    }
 
-    const finalUsers = Array.from(userMap.values());
-    setCommunityUsers(finalUsers);
-    writeLocalArray(STORAGE_KEYS.users, finalUsers);
+      finalPubs.forEach((p) => {
+        const nick = p.author_nickname;
+        if (nick && !userMap.has(nick)) {
+          userMap.set(nick, {
+            id: p.author_id || nick,
+            nickname: nick,
+            role: p.author_role || "user",
+            is_verified: p.author_is_verified !== false,
+            re_points: p.author_re_points ?? 100,
+            zone_name: p.zone_name || "Valera, Trujillo",
+          });
+        }
+      });
 
-    setUsingFallback(fallbackTriggered);
-    setLoading(false);
-  }, [token, user]);
+      if (user?.nickname) {
+        userMap.set(user.nickname, {
+          id: user.id || user.nickname,
+          nickname: user.nickname,
+          role: user.role || "user",
+          is_verified: Boolean(user.is_verified),
+          re_points: user.re_points ?? user.rePoints ?? 0,
+          zone_name:
+            user.approx_zone_name || user.zone_name || "Valera, Trujillo",
+        });
+      }
 
+      const finalUsers = Array.from(userMap.values());
+      setCommunityUsers(finalUsers);
+      writeLocalArray(STORAGE_KEYS.users, finalUsers);
+
+      setUsingFallback(fallbackTriggered);
+      if (silent !== true) setLoading(false);
+    },
+    [token, user]
+  );
+
+  // Carga inicial + polling cada 5 segundos para sincronización en tiempo real
   useEffect(() => {
     loadData();
+
+    const interval = setInterval(() => {
+      loadData(true);
+    }, 5000);
+
+    const handleFocus = () => loadData(true);
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", handleFocus);
+    };
   }, [loadData]);
 
+  // Inserta inmediatamente una nueva publicación y sincroniza con el backend
   useEffect(() => {
     if (!externalNewPublication) return;
+    const normalized = normalizePublication(externalNewPublication);
     setPublications((prev) => {
-      const exists = prev.some((item) => item.id === externalNewPublication.id);
-      const next = exists ? prev : [externalNewPublication, ...prev];
+      const exists = prev.some((item) => item.id === normalized.id);
+      const next = exists ? prev : [normalized, ...prev];
       writeLocalArray(STORAGE_KEYS.publications, next);
       return next;
     });
-    setSelectedPubId(externalNewPublication.id);
-  }, [externalNewPublication]);
+    setSelectedPubId(normalized.id);
+    loadData(true);
+  }, [externalNewPublication, loadData]);
 
   useEffect(() => {
     if (!initialSelectedPublicationId) return;
@@ -609,25 +654,33 @@ export default function FeedPage({
     setActiveBlogId(post.id);
   }, []);
 
-  const handleEventCreated = useCallback((newEvt) => {
-    setEvents((prev) => {
-      const next = [newEvt, ...prev];
-      writeLocalArray(STORAGE_KEYS.events, next);
-      return next;
-    });
-    setShowCreateEventForm(false);
-    setActiveEventId(newEvt.id);
-  }, []);
+  const handleEventCreated = useCallback(
+    (newEvt) => {
+      setEvents((prev) => {
+        const next = [newEvt, ...prev];
+        writeLocalArray(STORAGE_KEYS.events, next);
+        return next;
+      });
+      setShowCreateEventForm(false);
+      setActiveEventId(newEvt.id);
+      loadData(true);
+    },
+    [loadData]
+  );
 
-  const handleBlogCreated = useCallback((newPost) => {
-    setBlogPosts((prev) => {
-      const next = [newPost, ...prev];
-      writeLocalArray(STORAGE_KEYS.blog, next);
-      return next;
-    });
-    setShowCreateBlogForm(false);
-    setActiveBlogId(newPost.id);
-  }, []);
+  const handleBlogCreated = useCallback(
+    (newPost) => {
+      setBlogPosts((prev) => {
+        const next = [newPost, ...prev];
+        writeLocalArray(STORAGE_KEYS.blog, next);
+        return next;
+      });
+      setShowCreateBlogForm(false);
+      setActiveBlogId(newPost.id);
+      loadData(true);
+    },
+    [loadData]
+  );
 
   const handleJoinEvent = useCallback((joinedEvt) => {
     if (!joinedEvt?.id) return;
@@ -1020,7 +1073,7 @@ export default function FeedPage({
                   <button
                     type="button"
                     style={{ backgroundColor: PRIMARY_GREEN }}
-                    onClick={loadData}
+                    onClick={() => loadData(false)}
                     className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold text-white transition hover:opacity-90"
                   >
                     <RefreshCw className="h-3.5 w-3.5" />
